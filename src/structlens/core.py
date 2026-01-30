@@ -60,6 +60,7 @@ def mst_tf(
     Returns:
         spanning_tree_list: SpanningTree objects for each batch.
     """
+    set_seed(seed)
     assert scores.ndim == 3, (
         "scores must be a 3D numpy array (batch_size, num_nodes, num_nodes)"
     )
