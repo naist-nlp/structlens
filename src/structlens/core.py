@@ -9,7 +9,8 @@ import torch
 from tensorflow_text.python.ops import mst_ops
 from torch import Tensor
 
-from structlens.similarity import SimilarityFunction
+from structlens.masking import create_masks
+from structlens.similarity import L2DistanceSimilarityFunction, SimilarityFunction
 from structlens.utils.logging_config import get_logger
 
 default_logger = get_logger("struct_lens")
@@ -110,6 +111,27 @@ class StructLens:
         self.seed = seed
         self.logger = logger
         set_seed(seed)
+
+    def __call__(self, representations: Tensor) -> list[SpanningTree]:
+        """
+        Compute the scores between the representations then mask the scores and apply the root selection scores.
+
+        Args:
+            representations: A tensor of shape (batch_size, num_nodes, num_features)
+        Returns:
+            spanning_tree_list: SpanningTree objects for each batch.
+        """
+        num_layers = representations.shape[0]
+        num_nodes_per_layer = representations.shape[1]
+        mask = create_masks(
+            num_nodes_per_layer=[num_nodes_per_layer] * num_layers,
+            device=representations.device,
+        )
+        root_selection_scores = torch.zeros(num_layers, num_nodes_per_layer)
+        scores = self.compute_scores(
+            representations, mask, root_selection_scores, L2DistanceSimilarityFunction()
+        )
+        return self.compute_mst(scores, num_nodes=[num_nodes_per_layer] * num_layers)
 
     @torch.no_grad()
     def compute_scores(
