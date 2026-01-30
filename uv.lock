@@ -8,6 +8,12 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'linux' and sys_platform != 'win32'",
 ]
 
+[manifest]
+members = [
+    "structlens",
+    "structlens-sample",
+]
+
 [[package]]
 name = "absl-py"
 version = "2.4.0"
@@ -1256,7 +1262,6 @@ dependencies = [
     { name = "tensorflow-text", version = "2.20.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
     { name = "torch", version = "2.10.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-    { name = "transformers" },
 ]
 
 [package.dev-dependencies]
@@ -1275,7 +1280,6 @@ requires-dist = [
     { name = "tensorflow-text", specifier = ">=2.18.1" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.10.0" },
     { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.10.0", index = "https://download.pytorch.org/whl/cu130" },
-    { name = "transformers", specifier = ">=5.0.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1284,6 +1288,23 @@ dev = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "ruff", specifier = ">=0.14.14" },
     { name = "ty", specifier = ">=0.0.14" },
+]
+
+[[package]]
+name = "structlens-sample"
+version = "0.1.0"
+source = { virtual = "examples/structlens-sample" }
+dependencies = [
+    { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
+    { name = "torch", version = "2.10.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "transformers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.10.0" },
+    { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.10.0", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "transformers", specifier = ">=5.0.0" },
 ]
 
 [[package]]
