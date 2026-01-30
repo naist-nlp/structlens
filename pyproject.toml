@@ -1,11 +1,17 @@
 [project]
 name = "structlens"
 version = "0.1.0"
-description = "Uncover internal structers in LLMs"
+description = "Uncover internal structures in LLMs"
 readme = "README.md"
 authors = [{ name = "Haruki Sakajo", email = "sakajoharuki@gmail.com" }]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "einops>=0.8.2",
+    "numpy<2.0",
+    "tensorflow-cpu>=2.18.0",
+    "tensorflow-text>=2.18.1",
+    "torch>=2.10.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.28,<0.10.0"]
@@ -17,6 +23,20 @@ dev = [
     "pytest>=9.0.2",
     "ruff>=0.14.14",
     "ty>=0.0.14",
+]
+
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [tool.pytest.ini_options]
