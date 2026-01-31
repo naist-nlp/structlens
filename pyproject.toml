@@ -9,7 +9,7 @@ dependencies = [
   "einops>=0.8.2",
   "numpy<2.0",
   "tensorflow-text>=2.18.1",
-  "torch>=2.10.0",
+  "torch>=2.8.0",
 ]
 
 [build-system]
