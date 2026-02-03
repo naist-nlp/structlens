@@ -5,7 +5,6 @@ Interactive dependency tree visualizer for StructLens output. Drop a JSON file a
 ## Usage
 
 ```bash
-cd visualizer
 bun install
 bun run dev
 ```

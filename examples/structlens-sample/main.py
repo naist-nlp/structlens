@@ -36,9 +36,19 @@ def main():
 
     struct_lens = StructLens()
     st_list = struct_lens(representations)
-    for i, st in enumerate(st_list):
-        print("layer: ", i)
-        print("argmax_heads: ", st["argmax_heads"])
+
+    input_tokens = [tokenizer.decode(token) for token in inputs["input_ids"][0]]
+    res = {
+        "tokens": input_tokens,
+        "layers": [
+            {
+                "layer": i,
+                "argmax_heads": st["argmax_heads"].tolist(),
+            }
+            for i, st in enumerate(st_list)
+        ],
+    }
+    print(res)
 
 
 if __name__ == "__main__":
