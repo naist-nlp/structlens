@@ -1,0 +1,34 @@
+:root {
+  --bg: #ffffff;
+  --bg-surface: #ffffff;
+  --text: #212121;
+  --text-muted: #757575;
+  --accent: #d32f2f;
+  --accent-dim: #ffcdd2;
+  --arc-stroke: #536dfe;
+  --root-color: #9ece6a;
+  --border: #3b4261;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
