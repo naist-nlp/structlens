@@ -28,8 +28,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Move to visualizer directory
-        run: cd visualizer
       - name: Checkout
         uses: actions/checkout@v6
       - name: Set up Bun
