@@ -30,14 +30,14 @@ def test_mst_basic():
 
     spanning_tree_list = mst(scores, num_nodes=[4, 3])
     argmax_heads = [
-        spanning_tree["argmax_heads"].tolist() for spanning_tree in spanning_tree_list
+        spanning_tree.argmax_heads.tolist() for spanning_tree in spanning_tree_list
     ]
 
     assert argmax_heads == expected
 
 
 def test_struct_lens_compute_scores():
-    from structlens.similarity import L2DistanceSimilarityFunction
+    from structlens.similarity import l2_distance
 
     # 1 batch, 3 nodes, 2 features
     representations = torch.Tensor(
@@ -77,7 +77,7 @@ def test_struct_lens_compute_scores():
     )
     struct_lens = StructLens()
     scores = struct_lens.compute_scores(
-        representations, mask, root_selection_scores, L2DistanceSimilarityFunction()
+        representations, mask, root_selection_scores, l2_distance
     )
     logger.debug(f"scores: {scores}")
     logger.debug(f"expected: {expected}")
@@ -105,8 +105,31 @@ def test_struct_lens_mst():
 
     struct_lens = StructLens()
     st_list = struct_lens.compute_mst(scores, num_nodes=[4, 3])
-    argmax_heads = [spanning_tree["argmax_heads"].tolist() for spanning_tree in st_list]
+    argmax_heads = [spanning_tree.argmax_heads.tolist() for spanning_tree in st_list]
     logger.debug(f"argmax_heads: {argmax_heads}")
     logger.debug(f"expected: {expected}")
 
     assert argmax_heads == expected
+
+
+def test_st_degrees():
+    from structlens.core import SpanningTree
+
+    tree = SpanningTree(
+        max_score=1.0,
+        argmax_heads=np.array([0, 0, 0, 0, 0, 1, 5, 6, 7, 6]),
+    )
+    degrees = tree.degrees()
+    assert np.array_equal(degrees, np.array([4, 1, 0, 0, 0, 1, 2, 1, 0, 0]))
+
+
+def test_st_n_node_chunks():
+    from structlens.core import SpanningTree
+
+    tree = SpanningTree(
+        max_score=1.0,
+        argmax_heads=np.array([0, 0, 0, 0, 0, 1, 5, 6, 7, 6]),
+    )
+    token_in_chunk, cnt = tree.n_node_chunks(n=4)
+    assert token_in_chunk == {0, 1, 2, 3, 5, 6, 7, 8, 9}
+    assert cnt == 3

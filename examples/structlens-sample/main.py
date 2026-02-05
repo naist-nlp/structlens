@@ -43,7 +43,7 @@ def main():
         "layers": [
             {
                 "layer": i,
-                "argmax_heads": st["argmax_heads"].tolist(),
+                "argmax_heads": st.argmax_heads.tolist(),
             }
             for i, st in enumerate(st_list)
         ],

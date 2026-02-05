@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 from logging import Logger
-from typing import TypedDict
 
 import einops
 import numpy as np
@@ -10,7 +10,7 @@ from tensorflow_text.python.ops import mst_ops
 from torch import Tensor
 
 from structlens.masking import create_masks
-from structlens.similarity import L2DistanceSimilarityFunction, SimilarityFunction
+from structlens.similarity import SimilarityFunction, l2_distance
 from structlens.utils.logging_config import get_logger
 
 default_logger = get_logger("struct_lens")
@@ -25,26 +25,103 @@ def set_seed(seed: int):
     tf.random.set_seed(seed)
 
 
-class SpanningTree(TypedDict):
+class SpanningTree:
     """
-    A spanning tree of a directed graph.
+    A spanning tree of a graph.
 
-    max_score: The maximum score of the spanning tree.
-    argmax_heads: The head of the edge in the maximum spanning tree.
-        where argmax_heads[i] is the head of i-th node in the spanning tree.
-        If argmax_heads[i] == i, then the i-th node is the root node.
-        If argmax_heads[i] == -1, then the i-th node is padded.
+    Attributes:
+        max_score: The maximum score of the spanning tree.
+        argmax_heads: The head of the edge in the maximum spanning tree.
+            where argmax_heads[i] is the head of i-th node in the spanning tree.
+            If argmax_heads[i] == i, then the i-th node is the root node.
+            If argmax_heads[i] == -1, then the i-th node is padded.
     """
 
-    max_score: npt.NDArray[np.float32]
-    argmax_heads: npt.NDArray[np.int32]
+    def __init__(
+        self,
+        max_score: float,
+        argmax_heads: npt.NDArray[np.int32],
+    ):
+        self.max_score = max_score
+        self.argmax_heads = argmax_heads
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SpanningTree):
+            return False
+        return self.max_score == other.max_score and np.array_equal(
+            self.argmax_heads, other.argmax_heads
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.max_score, tuple(self.argmax_heads.tolist())))
+
+    def __repr__(self) -> str:
+        return f"SpanningTree(max_score={self.max_score}, argmax_heads={self.argmax_heads.tolist()})"
+
+    def to_dict(self) -> dict:
+        return {
+            "max_score": self.max_score,
+            "argmax_heads": self.argmax_heads.tolist(),
+        }
+
+    def degrees(self) -> npt.NDArray[np.int32]:
+        """
+        Compute the degrees of the nodes in the spanning tree.
+
+        Returns:
+            degrees: A numpy array of shape (num_nodes) where degrees[i] is the degree of the i-th node.
+        """
+        degrees = np.zeros(len(self.argmax_heads), dtype=np.int32)
+        for i, head in enumerate(self.argmax_heads):
+            if head >= 0 and i != head:  # Ignore the root node and padded nodes
+                degrees[head] += 1
+        return degrees
+
+    def n_node_chunks(self, n: int = 4) -> tuple[set[int], int]:
+        """
+        Count the number of n-node chunks, where subtrees consist of the contiguous nodes in the spanning tree,
+            and return the tokens in the chunks and the number of chunks.
+        For example, a subtree (pos1(pos2)(pos3(pos4))) is a 4-node chunk and (pos1(pos4)(pos5(pos6))) is not.
+
+        Args:
+            n: The number of nodes in the chunk. (Default: 4 as in the original paper)
+
+        Returns:
+            token_in_chunk: A set of tokens in the n-node chunks.
+            cnt: The number of n-node chunks.
+        """
+        num_nodes = len(self.argmax_heads)
+        if num_nodes < n:
+            return set(), 0
+
+        num_spans = num_nodes - n + 1
+        starts = np.arange(num_spans)
+
+        windows = np.lib.stride_tricks.sliding_window_view(self.argmax_heads, n)
+
+        lower = starts[:, None]
+        upper = (starts + n)[:, None]
+        in_range = (windows >= lower) & (windows < upper)
+
+        # A span is valid if at least (n - 1) nodes point within the span
+        valid_mask = in_range.sum(axis=1) >= (n - 1)
+        cnt = int(valid_mask.sum())
+
+        if cnt == 0:
+            return set(), 0
+
+        valid_starts = starts[valid_mask]
+        all_tokens = (valid_starts[:, None] + np.arange(n)).ravel()
+        token_in_chunk = set(all_tokens.tolist())
+
+        return token_in_chunk, cnt
 
 
-def mst_tf(
+def mst(
     scores: npt.NDArray,
-    num_nodes: list[int] | None = None,
-    is_forest=False,
-    seed: int = 42,
+    num_nodes: Sequence[int] | None = None,
+    is_forest: bool = False,
+    seed: int | None = None,
     logger: Logger = default_logger,
 ) -> list[SpanningTree]:
     """
@@ -59,9 +136,10 @@ def mst_tf(
         seed: The seed for the random number generator.
 
     Returns:
-        spanning_tree_list: SpanningTree objects for each batch.
+        spanning_tree_list: list[SpanningTree] for each batch.
     """
-    set_seed(seed)
+    if seed is not None:
+        set_seed(seed)
     assert scores.ndim == 3, (
         "scores must be a 3D numpy array (batch_size, num_nodes, num_nodes)"
     )
@@ -89,21 +167,11 @@ def mst_tf(
         logger.debug(f"argmax_heads (tf): {argmax_heads_i}")
         spanning_tree_list.append(
             SpanningTree(
-                max_score=max_scores_np[i],
+                max_score=max_scores_np[i].item(),
                 argmax_heads=argmax_heads_i,
             )
         )
     return spanning_tree_list
-
-
-def mst(
-    scores: npt.NDArray,
-    num_nodes: list[int] | None = None,
-    is_forest=False,
-    seed: int = 42,
-    logger: Logger = default_logger,
-) -> list[SpanningTree]:
-    return mst_tf(scores, num_nodes, is_forest, seed, logger)
 
 
 class StructLens:
@@ -112,26 +180,32 @@ class StructLens:
         self.logger = logger
         set_seed(seed)
 
-    def __call__(self, representations: Tensor) -> list[SpanningTree]:
+    def __call__(
+        self,
+        representations: Tensor,
+        similarity_function: SimilarityFunction = l2_distance,
+    ) -> list[SpanningTree]:
         """
         Compute the scores between the representations then mask the scores and apply the root selection scores.
 
         Args:
-            representations: A tensor of shape (batch_size, num_nodes, num_features)
+            representations: A tensor of shape (batch_size (num_layers), num_nodes, num_features)
+            similarity_function: A function that takes a tensor of shape (batch_size, num_nodes, num_features) and returns a tensor of shape (batch_size, num_nodes, num_nodes)
+                (Default: l2_distance)
         Returns:
             spanning_tree_list: SpanningTree objects for each batch.
         """
         num_layers = representations.shape[0]
-        num_nodes_per_layer = representations.shape[1]
+        num_nodes = representations.shape[1]
         mask = create_masks(
-            num_nodes_per_layer=[num_nodes_per_layer] * num_layers,
+            num_nodes_per_layer=[num_nodes] * num_layers,
             device=representations.device,
         )
-        root_selection_scores = torch.zeros(num_layers, num_nodes_per_layer)
+        root_selection_scores = torch.zeros(num_layers, num_nodes)
         scores = self.compute_scores(
-            representations, mask, root_selection_scores, L2DistanceSimilarityFunction()
+            representations, mask, root_selection_scores, similarity_function
         )
-        return self.compute_mst(scores, num_nodes=[num_nodes_per_layer] * num_layers)
+        return self.compute_mst(scores, num_nodes=[num_nodes] * num_layers)
 
     @torch.no_grad()
     def compute_scores(
@@ -185,10 +259,8 @@ class StructLens:
             scores.shape[1], dtype=torch.bool, device=scores.device
         ).unsqueeze(0)
         scores.masked_fill_(eye_mask, 0)
-        del eye_mask
         root_scores_device = root_selection_scores.to(scores.device)
         scores.add_(torch.diag_embed(root_scores_device))
-        del root_scores_device
 
         return scores
 
@@ -204,7 +276,7 @@ class StructLens:
             num_nodes: The number of actual nodes in each batch.
 
         Returns:
-            spanning_tree_list: SpanningTree objects for each batch.
+            spanning_tree_list: list[SpanningTree] for each batch.
         """
         assert scores.ndim == 3, (
             f"scores must be a 3D tensor (batch_size, num_nodes, num_nodes), but got {scores.ndim}"
@@ -219,9 +291,6 @@ class StructLens:
         self.logger.debug(f"num_nodes: {num_nodes}")
 
         scores_np = scores.float().cpu().numpy()
-        del scores
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
         return mst(
             scores_np,
