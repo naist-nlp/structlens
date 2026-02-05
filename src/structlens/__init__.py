@@ -1,19 +1,17 @@
 from structlens.core import SpanningTree, StructLens, mst
 from structlens.masking import create_masks
+from structlens.metrics import StructLensDistance
 from structlens.similarity import (
-    L2DistanceSimilarityFunction,
     SimilarityFunction,
-    SimilarityType,
-    get_similarity_function,
+    l2_distance,
 )
 
 __all__ = [
-    "L2DistanceSimilarityFunction",
     "SimilarityFunction",
-    "SimilarityType",
     "SpanningTree",
     "StructLens",
+    "StructLensDistance",
     "create_masks",
-    "get_similarity_function",
+    "l2_distance",
     "mst",
 ]
