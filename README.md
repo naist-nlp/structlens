@@ -27,8 +27,7 @@ struct_lens = StructLens()
 st_list = struct_lens(representations)
 for i, st in enumerate(st_list):
     print("layer: ", i)
-    print("max_score: ", st["max_score"])
-    print("argmax_heads: ", st["argmax_heads"])
+    print("argmax_heads: ", st.argmax_heads)
 ```
 
 See [examples/structlens-sample](examples/structlens-sample) for more details.

@@ -35,5 +35,6 @@ def l2_distance(representations: Tensor) -> Tensor:
         raise ValueError(
             f"representations must be a 3D tensor, but got {representations.ndim}"
         )
+    representations = representations.float()
     distance = -torch.cdist(representations, representations, p=2)
     return distance
