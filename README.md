@@ -1,5 +1,7 @@
 # StructLens
 
+![demo](assets/demo.gif)
+
 Visualizer for StructLens: [https://naist-nlp.github.io/structlens/](https://naist-nlp.github.io/structlens/)
 
 ## Installation
