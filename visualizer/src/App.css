@@ -48,6 +48,11 @@
   color: var(--text);
 }
 
+.share-btn.copied {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .app-main {
   flex: 1;
   overflow: hidden;
