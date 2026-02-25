@@ -1,13 +1,14 @@
-import { useRef, useEffect } from 'react';
-import { initializeSvg, renderTree, resetZoom } from '../d3/render';
-import { NODE_SPACING } from '../d3/layout';
+import { useRef, useEffect } from "react";
+import { initializeSvg, renderTree, resetZoom } from "../d3/render";
+import { NODE_SPACING } from "../d3/layout";
 
 interface TreeViewProps {
   tokens: string[];
   argmaxHeads: number[];
+  highlightMode: 'children' | 'parents';
 }
 
-export function TreeView({ tokens, argmaxHeads }: TreeViewProps) {
+export function TreeView({ tokens, argmaxHeads, highlightMode }: TreeViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const prevHeadsRef = useRef<number[] | null>(null);
@@ -25,16 +26,18 @@ export function TreeView({ tokens, argmaxHeads }: TreeViewProps) {
     }
 
     // Reset zoom when tokens change (new file or range change)
-    const tokensChanged = prevTokensRef.current === null
-      || prevTokensRef.current.length !== tokens.length
-      || prevTokensRef.current[0] !== tokens[0];
+    const tokensChanged =
+      prevTokensRef.current === null ||
+      prevTokensRef.current.length !== tokens.length ||
+      prevTokensRef.current[0] !== tokens[0];
 
     if (tokensChanged) {
       const contentWidth = (tokens.length - 1) * NODE_SPACING + 2 * 50;
       const containerWidth = container.clientWidth;
-      const offsetX = contentWidth < containerWidth
-        ? (containerWidth - (tokens.length - 1) * NODE_SPACING) / 2
-        : 50;
+      const offsetX =
+        contentWidth < containerWidth
+          ? (containerWidth - (tokens.length - 1) * NODE_SPACING) / 2
+          : 50;
       // Compute baseline for reset
       let maxArcHeight = 40;
       for (let i = 0; i < argmaxHeads.length; i++) {
@@ -51,9 +54,16 @@ export function TreeView({ tokens, argmaxHeads }: TreeViewProps) {
     }
 
     prevTokensRef.current = tokens;
-    renderTree(svg, container, tokens, argmaxHeads, prevHeadsRef.current);
+    renderTree(
+      svg,
+      container,
+      tokens,
+      argmaxHeads,
+      prevHeadsRef.current,
+      highlightMode,
+    );
     prevHeadsRef.current = argmaxHeads;
-  }, [tokens, argmaxHeads]);
+  }, [tokens, argmaxHeads, highlightMode]);
 
   // Re-render on container resize
   useEffect(() => {
@@ -63,12 +73,12 @@ export function TreeView({ tokens, argmaxHeads }: TreeViewProps) {
 
     const observer = new ResizeObserver(() => {
       if (initializedRef.current) {
-        renderTree(svg, container, tokens, argmaxHeads, null);
+        renderTree(svg, container, tokens, argmaxHeads, null, highlightMode);
       }
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [tokens, argmaxHeads]);
+  }, [tokens, argmaxHeads, highlightMode]);
 
   return (
     <div className="tree-view" ref={containerRef}>
