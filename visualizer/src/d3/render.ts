@@ -9,6 +9,66 @@ const TOKEN_BELOW = 30
 const MIN_ARC_HEIGHT = 40
 
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
+let currentHoveredIndex: number | null = null
+
+function applyHighlight(
+  nodesGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
+  arcsGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
+  hoveredIndex: number | null,
+  mode: 'children' | 'parents',
+  edges: TreeEdge[],
+) {
+  const highlightedNodes = new Set<number>()
+  const highlightedEdgeKeys = new Set<string>()
+
+  if (hoveredIndex !== null) {
+    highlightedNodes.add(hoveredIndex)
+    if (mode === 'children') {
+      // nodes that point TO the hovered node (its children)
+      for (const edge of edges) {
+        if (edge.target === hoveredIndex) {
+          highlightedNodes.add(edge.source)
+          highlightedEdgeKeys.add(`${edge.source}->${edge.target}`)
+        }
+      }
+    } else {
+      // node that hovered points TO (its parent)
+      for (const edge of edges) {
+        if (edge.source === hoveredIndex) {
+          highlightedNodes.add(edge.target)
+          highlightedEdgeKeys.add(`${edge.source}->${edge.target}`)
+        }
+      }
+    }
+  }
+
+  const isHovering = hoveredIndex !== null
+
+  nodesGroup.selectAll<SVGGElement, TreeNode>('g.node').each(function (d) {
+    const isHighlighted = highlightedNodes.has(d.index)
+    const isHovered = d.index === hoveredIndex
+    const dimmed = isHovering && !isHighlighted
+
+    d3.select(this)
+      .select('circle')
+      .attr('r', isHovered ? 6 : 4)
+      .attr('opacity', d.isPadding ? 0 : dimmed ? 0.15 : 1)
+
+    d3.select(this)
+      .select('text')
+      .attr('opacity', d.isPadding ? 0.3 : dimmed ? 0.15 : 1)
+      .attr('font-weight', isHighlighted ? 'bold' : 'normal')
+  })
+
+  arcsGroup.selectAll<SVGPathElement, TreeEdge>('path.arc').each(function (d) {
+    const key = `${d.source}->${d.target}`
+    const isHighlightedEdge = highlightedEdgeKeys.has(key)
+    const opacity = isHovering ? (isHighlightedEdge ? 0.9 : 0.05) : ARC_OPACITY
+    const strokeWidth = isHighlightedEdge ? 2.5 : 1.5
+
+    d3.select(this).attr('opacity', opacity).attr('stroke-width', strokeWidth)
+  })
+}
 
 export function initializeSvg(svg: SVGSVGElement) {
   const sel = d3.select(svg)
@@ -55,6 +115,7 @@ export function renderTree(
   tokens: string[],
   argmaxHeads: number[],
   prevHeads: number[] | null,
+  highlightMode: 'children' | 'parents' = 'children',
 ) {
   const nodes = computeNodes(tokens, argmaxHeads)
   const edges = computeEdges(tokens, argmaxHeads)
@@ -216,4 +277,19 @@ export function renderTree(
       },
       (exit) => exit.remove(),
     )
+
+  // Attach hover handlers (re-attached on every render to keep highlightMode current)
+  nodesGroup
+    .selectAll<SVGGElement, TreeNode>('g.node')
+    .on('mouseover', (_event, d) => {
+      currentHoveredIndex = d.index
+      applyHighlight(nodesGroup, arcsGroup, d.index, highlightMode, edges)
+    })
+    .on('mouseout', () => {
+      currentHoveredIndex = null
+      applyHighlight(nodesGroup, arcsGroup, null, highlightMode, edges)
+    })
+
+  // Re-apply current highlight state (e.g. mode toggled while hovering)
+  applyHighlight(nodesGroup, arcsGroup, currentHoveredIndex, highlightMode, edges)
 }

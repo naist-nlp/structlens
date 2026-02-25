@@ -29,6 +29,7 @@ function App() {
   const [tokenEnd, setTokenEnd] = useState(initialData.tokens.length);
   const [showUpload, setShowUpload] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [highlightMode, setHighlightMode] = useState<'children' | 'parents'>('children');
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleLoad = useCallback((d: StructLensData) => {
@@ -82,6 +83,13 @@ function App() {
             >
               {copied ? 'Copied!' : 'Share'}
             </button>
+            <button
+              className="load-btn"
+              onClick={() => setHighlightMode(m => m === 'children' ? 'parents' : 'children')}
+              title="Toggle whether hovering a node highlights its children or its parent"
+            >
+              Hover: {highlightMode === 'children' ? 'Children ↓' : 'Parent ↑'}
+            </button>
             <TokenRangeControls
               tokenStart={tokenStart}
               tokenEnd={tokenEnd}
@@ -100,7 +108,7 @@ function App() {
       </div>
       <div className="app-main">
         {data && !showUpload ? (
-          <TreeView tokens={visibleTokens} argmaxHeads={visibleHeads} />
+          <TreeView tokens={visibleTokens} argmaxHeads={visibleHeads} highlightMode={highlightMode} />
         ) : (
           <FileDropZone onLoad={handleLoad} onLoadSample={() => handleLoad(defaultData)} />
         )}
