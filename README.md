@@ -17,7 +17,7 @@ uv add git+https://github.com/naist-nlp/structlens.git
 
 ```python
 import torch
-from structlens import L2DistanceSimilarityFunction, StructLens, create_masks
+from structlens import StructLens
 
 num_tokens_per_layer = 5
 num_layers = 3
