@@ -4,6 +4,7 @@ from structlens.metrics import StructLensDistance
 from structlens.similarity import (
     SimilarityFunction,
     l2_distance,
+    l2_reciprocal_similarity,
 )
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "StructLensDistance",
     "create_masks",
     "l2_distance",
+    "l2_reciprocal_similarity",
     "mst",
 ]

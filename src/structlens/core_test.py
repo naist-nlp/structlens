@@ -37,7 +37,7 @@ def test_mst_basic():
 
 
 def test_struct_lens_compute_scores():
-    from structlens.similarity import l2_distance
+    from structlens.similarity import l2_reciprocal_similarity
 
     # 1 batch, 3 nodes, 2 features
     representations = torch.Tensor(
@@ -77,7 +77,7 @@ def test_struct_lens_compute_scores():
     )
     struct_lens = StructLens()
     scores = struct_lens.compute_scores(
-        representations, mask, root_selection_scores, l2_distance
+        representations, mask, root_selection_scores, l2_reciprocal_similarity
     )
     logger.debug(f"scores: {scores}")
     logger.debug(f"expected: {expected}")

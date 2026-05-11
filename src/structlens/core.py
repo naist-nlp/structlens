@@ -10,7 +10,7 @@ from tensorflow_text.python.ops import mst_ops
 from torch import Tensor
 
 from structlens.masking import create_masks
-from structlens.similarity import SimilarityFunction, l2_distance
+from structlens.similarity import SimilarityFunction, l2_reciprocal_similarity
 from structlens.utils.logging_config import get_logger
 
 default_logger = get_logger("struct_lens")
@@ -183,7 +183,7 @@ class StructLens:
     def __call__(
         self,
         representations: Tensor,
-        similarity_function: SimilarityFunction = l2_distance,
+        similarity_function: SimilarityFunction = l2_reciprocal_similarity,
     ) -> list[SpanningTree]:
         """
         Compute the scores between the representations then mask the scores and apply the root selection scores.
@@ -216,7 +216,7 @@ class StructLens:
         similarity_function: SimilarityFunction,
     ) -> Tensor:
         """
-        Compute the scores between the representations then mask the scores and apply the root selection scores.
+        Compute the scores based on similarity between the representations then mask the scores and apply the root selection scores.
 
         Args:
             representations: A tensor of shape (batch_size, num_nodes, num_features)
@@ -243,26 +243,23 @@ class StructLens:
         self.logger.debug(f"mask.shape: {mask.shape}")
         self.logger.debug(f"root_selection_scores.shape: {root_selection_scores.shape}")
 
-        scores = similarity_function(
+        similarity = similarity_function(
             representations
         )  # (batch_size, num_nodes (heads), num_nodes (modifiers))
-        self.logger.debug(f"scores.shape: {scores.shape}")
-        self.logger.debug(f"scores: {scores}")
+        self.logger.debug(f"scores.shape: {similarity.shape}")
+        self.logger.debug(f"scores: {similarity}")
 
-        # NOTE: Reciprocal of the similarity to avoid negative values
-        scores = 1.0 / (1.0 - scores)
-        self.logger.debug(f"scores (reciprocal): {scores}")
-        scores.mul_(mask)
+        similarity.mul_(mask)
 
         # Replace the diagonal elements of scores with root_selection_scores
         eye_mask = torch.eye(
-            scores.shape[1], dtype=torch.bool, device=scores.device
+            similarity.shape[1], dtype=torch.bool, device=similarity.device
         ).unsqueeze(0)
-        scores.masked_fill_(eye_mask, 0)
-        root_scores_device = root_selection_scores.to(scores.device)
-        scores.add_(torch.diag_embed(root_scores_device))
+        similarity.masked_fill_(eye_mask, 0)
+        root_scores_device = root_selection_scores.to(similarity.device)
+        similarity.add_(torch.diag_embed(root_scores_device))
 
-        return scores
+        return similarity
 
     @torch.no_grad()
     def compute_mst(

@@ -38,3 +38,23 @@ def l2_distance(representations: Tensor) -> Tensor:
     representations = representations.float()
     distance = -torch.cdist(representations, representations, p=2)
     return distance
+
+
+def l2_reciprocal_similarity(representations: Tensor) -> Tensor:
+    """
+    Calculate the reciprocal of the L2 distance as similarity between the representations.
+
+    Args:
+        representations: A tensor of shape (batch_size, num_tokens, num_features)
+
+    Returns:
+        The reciprocal of the L2 distance-based similarity between the representations.
+        A tensor of shape (batch_size, num_tokens, num_tokens)
+    """
+    if representations.ndim != 3:
+        raise ValueError(
+            f"representations must be a 3D tensor, but got {representations.ndim}"
+        )
+    representations = representations.float()
+    similarity = 1.0 / (1.0 + torch.cdist(representations, representations, p=2))
+    return similarity
