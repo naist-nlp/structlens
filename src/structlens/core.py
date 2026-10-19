@@ -184,6 +184,7 @@ class StructLens:
         self,
         representations: Tensor,
         similarity_function: SimilarityFunction = l2_reciprocal_similarity,
+        is_causal: bool = True,
     ) -> list[SpanningTree]:
         """
         Compute the scores between the representations then mask the scores and apply the root selection scores.
@@ -197,14 +198,19 @@ class StructLens:
         """
         num_layers = representations.shape[0]
         num_nodes = representations.shape[1]
-        mask = create_masks(
-            num_nodes_per_layer=[num_nodes] * num_layers,
-            device=representations.device,
-        )
+        if is_causal:
+            mask = create_masks(
+                num_nodes_per_layer=[num_nodes] * num_layers,
+                device=representations.device,
+            )
+        else:
+            mask = torch.ones(num_layers, num_nodes, num_nodes)
         root_selection_scores = torch.zeros(num_layers, num_nodes)
         scores = self.compute_scores(
             representations, mask, root_selection_scores, similarity_function
         )
+        if is_causal:
+            return self.select_most_similar_predecessors(scores, num_nodes=[num_nodes] * num_layers)
         return self.compute_mst(scores, num_nodes=[num_nodes] * num_layers)
 
     @torch.no_grad()
@@ -271,6 +277,7 @@ class StructLens:
         Args:
             scores: A tensor of shape (batch_size, num_nodes (heads), num_nodes (modifiers))
             num_nodes: The number of actual nodes in each batch.
+            is_forest: Whether to compute a maximum spanning forest.
 
         Returns:
             spanning_tree_list: list[SpanningTree] for each batch.
@@ -296,3 +303,57 @@ class StructLens:
             seed=self.seed,
             logger=self.logger,
         )
+
+    @torch.no_grad()
+    def select_most_similar_predecessors(
+        self, scores: Tensor, num_nodes: list[int], is_forest: bool = False
+    ) -> list[SpanningTree]:
+        """Choose each node's highest-scoring strictly earlier head.
+
+        Scores have shape (batch_size, heads, modifiers). Node 0 is the
+        root, and ties favor the nearest predecessor. The total includes
+        the root's diagonal score; padded nodes have head -1 and contribute
+        no score.
+
+        This is equivalent to computing the maximum spanning tree under the (causal) forward constraint.
+
+        Args:
+            scores: A tensor of shape (batch_size, num_nodes (heads), num_nodes (modifiers))
+            num_nodes: The number of actual nodes in each batch.
+            is_forest: [Not supported] This is for compatibility with `compute_mst`.
+
+        Returns:
+            spanning_tree_list: list[SpanningTree] for each batch.
+        """
+        if is_forest:
+            raise ValueError("Predecessor selection does not support forests")
+        if scores.ndim != 3 or scores.shape[1] != scores.shape[2]:
+            raise ValueError("scores must have shape (batch_size, num_nodes, num_nodes)")
+        if len(num_nodes) != scores.shape[0]:
+            raise ValueError("num_nodes must have one entry per graph")
+        if any(n < 0 or n > scores.shape[1] for n in num_nodes):
+            raise ValueError("num_nodes entries must be between 0 and the padded size")
+
+        spanning_tree_list = []
+        for graph_idx, n in enumerate(num_nodes):
+            graph_scores = scores[graph_idx]
+            heads = torch.full(
+                (scores.shape[1],), -1, dtype=torch.int32, device=scores.device
+            )
+            selected_scores = []
+            if n:
+                heads[0] = 0
+                selected_scores.append(graph_scores[0, 0])
+            for child in range(1, n):
+                # Reversing candidates makes argmax break ties toward the child.
+                candidates = graph_scores[:child, child]
+                head = child - 1 - candidates.flip(0).argmax().item()
+                heads[child] = head
+                selected_scores.append(graph_scores[head, child])  # ty:ignore[invalid-argument-type]
+            max_score = (
+                torch.stack(selected_scores).sum().item() if selected_scores else 0.0
+            )
+            spanning_tree_list.append(
+                SpanningTree(max_score=max_score, argmax_heads=heads.cpu().numpy())
+            )
+        return spanning_tree_list
