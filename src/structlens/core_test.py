@@ -133,3 +133,34 @@ def test_st_n_node_chunks():
     token_in_chunk, cnt = tree.n_node_chunks(n=4)
     assert token_in_chunk == {0, 1, 2, 3, 5, 6, 7, 8, 9}
     assert cnt == 3
+
+def test_select_most_similar_predecessors():
+    scores = torch.rand(2, 4, 4)
+    mask = torch.Tensor(
+        [
+            [
+                [0, 1.0, 1.0, 1.0],
+                [float("-inf"), 0, 1.0, 1.0],
+                [float("-inf"), float("-inf"), 0, 1.0],
+                [float("-inf"), float("-inf"), float("-inf"), 0],
+            ],
+            [
+                [0, 1.0, 1.0, 1.0],
+                [float("-inf"), 0, 1.0, 1.0],
+                [float("-inf"), float("-inf"), 0, 1.0],
+                [float("-inf"), float("-inf"), float("-inf"), 0],
+            ]
+        ]
+    )
+    scores = scores * mask
+
+    struct_lens = StructLens()
+    st_list_mst = struct_lens.compute_mst(scores, num_nodes=[4, 3])
+    st_list = struct_lens.select_most_similar_predecessors(scores, num_nodes=[4, 3])
+    argmax_heads_mst = [spanning_tree.argmax_heads.tolist() for spanning_tree in st_list_mst]
+    argmax_heads = [spanning_tree.argmax_heads.tolist() for spanning_tree in st_list]
+
+    logger.debug(f"argmax_heads_mst: {argmax_heads_mst}")
+    logger.debug(f"argmax_heads: {argmax_heads}")
+
+    assert argmax_heads == argmax_heads_mst
