@@ -9,7 +9,7 @@ const TOKEN_BELOW = 30
 const MIN_ARC_HEIGHT = 40
 
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
-let currentHoveredIndex: number | null = null
+
 
 function applyHighlight(
   nodesGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
@@ -115,6 +115,7 @@ export function renderTree(
   tokens: string[],
   argmaxHeads: number[],
   prevHeads: number[] | null,
+  interaction: { hovered: number | null; pinned: number | null },
   highlightMode: 'children' | 'parents' = 'children',
 ) {
   const nodes = computeNodes(tokens, argmaxHeads)
@@ -199,11 +200,11 @@ export function renderTree(
             .transition()
             .duration(TRANSITION_MS)
             .attr('d', (d) => arcPath(d.source * NODE_SPACING, d.target * NODE_SPACING))
-            .attr('opacity', ARC_OPACITY)
+
         } else {
           path
             .attr('d', (d) => arcPath(d.source * NODE_SPACING, d.target * NODE_SPACING))
-            .attr('opacity', ARC_OPACITY)
+
         }
 
         return path
@@ -213,7 +214,7 @@ export function renderTree(
           .transition()
           .duration(TRANSITION_MS)
           .attr('d', (d) => arcPath(d.source * NODE_SPACING, d.target * NODE_SPACING))
-          .attr('opacity', ARC_OPACITY)
+
         return update
       },
       (exit) => {
@@ -232,6 +233,16 @@ export function renderTree(
           .append('g')
           .attr('class', 'node')
           .attr('transform', (d) => `translate(${d.x}, ${d.y})`)
+
+        // Keep the gap between the dot and its label interactive.
+        g.append('rect')
+          .attr('x', -12)
+          .attr('y', -14)
+          .attr('width', 24)
+          .attr('height', 40)
+          .attr('rx', 6)
+          .attr('class', 'node-target')
+          .attr('fill', 'transparent')
 
         g.append('circle')
           .attr('r', 4)
@@ -262,7 +273,6 @@ export function renderTree(
           .attr('fill', (d) =>
             d.isPadding ? 'transparent' : d.isRoot ? 'var(--root-color)' : 'var(--accent)',
           )
-          .attr('opacity', (d) => (d.isPadding ? 0 : 1))
 
         update
           .select('text')
@@ -271,25 +281,31 @@ export function renderTree(
           .attr('fill', (d) =>
             d.isPadding ? 'var(--text-muted)' : d.isRoot ? 'var(--root-color)' : 'var(--text)',
           )
-          .attr('opacity', (d) => (d.isPadding ? 0.3 : 1))
 
         return update
       },
       (exit) => exit.remove(),
     )
 
-  // Attach hover handlers (re-attached on every render to keep highlightMode current)
-  nodesGroup
-    .selectAll<SVGGElement, TreeNode>('g.node')
-    .on('mouseover', (_event, d) => {
-      currentHoveredIndex = d.index
-      applyHighlight(nodesGroup, arcsGroup, d.index, highlightMode, edges)
+  const refreshHighlight = () => applyHighlight(
+    nodesGroup, arcsGroup, interaction.pinned ?? interaction.hovered, highlightMode, edges,
+  )
+  nodesGroup.selectAll<SVGGElement, TreeNode>('g.node')
+    .on('mouseenter', (_event, d) => {
+      interaction.hovered = d.index
+      refreshHighlight()
     })
-    .on('mouseout', () => {
-      currentHoveredIndex = null
-      applyHighlight(nodesGroup, arcsGroup, null, highlightMode, edges)
+    .on('mouseleave', () => {
+      interaction.hovered = null
+      refreshHighlight()
+    })
+    .on('dblclick', (event: MouseEvent, d) => {
+      event.stopPropagation()
+      event.preventDefault()
+      interaction.hovered = d.index
+      interaction.pinned = interaction.pinned === d.index ? null : d.index
+      refreshHighlight()
     })
 
-  // Re-apply current highlight state (e.g. mode toggled while hovering)
-  applyHighlight(nodesGroup, arcsGroup, currentHoveredIndex, highlightMode, edges)
+  refreshHighlight()
 }

@@ -9,6 +9,7 @@ interface TreeViewProps {
 }
 
 export function TreeView({ tokens, argmaxHeads, highlightMode }: TreeViewProps) {
+  const interaction = useRef<{ hovered: number | null; pinned: number | null }>({ hovered: null, pinned: null });
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const prevHeadsRef = useRef<number[] | null>(null);
@@ -60,6 +61,7 @@ export function TreeView({ tokens, argmaxHeads, highlightMode }: TreeViewProps) 
       tokens,
       argmaxHeads,
       prevHeadsRef.current,
+      interaction.current,
       highlightMode,
     );
     prevHeadsRef.current = argmaxHeads;
@@ -73,7 +75,7 @@ export function TreeView({ tokens, argmaxHeads, highlightMode }: TreeViewProps) 
 
     const observer = new ResizeObserver(() => {
       if (initializedRef.current) {
-        renderTree(svg, container, tokens, argmaxHeads, null, highlightMode);
+        renderTree(svg, container, tokens, argmaxHeads, null, interaction.current, highlightMode);
       }
     });
     observer.observe(container);
@@ -91,6 +93,13 @@ export function TreeView({ tokens, argmaxHeads, highlightMode }: TreeViewProps) 
         .tree-view svg {
           display: block;
           cursor: grab;
+        }
+        .tree-view .node {
+          cursor: pointer;
+        }
+        .tree-view .node:hover .node-target {
+          stroke: var(--text);
+          stroke-width: 1.5;
         }
         .tree-view svg:active {
           cursor: grabbing;

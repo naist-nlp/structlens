@@ -86,7 +86,7 @@ function App() {
             <button
               className="load-btn"
               onClick={() => setHighlightMode(m => m === 'children' ? 'parents' : 'children')}
-              title="Toggle whether hovering a node highlights its children or its parent"
+              title="Hover to highlight. Double-click a node to pin its highlight, or double-click it again to release."
             >
               Hover: {highlightMode === 'children' ? 'Children ↓' : 'Parent ↑'}
             </button>
@@ -108,7 +108,7 @@ function App() {
       </div>
       <div className="app-main">
         {data && !showUpload ? (
-          <TreeView tokens={visibleTokens} argmaxHeads={visibleHeads} highlightMode={highlightMode} />
+          <TreeView key={`${tokenStart}-${tokenEnd}`} tokens={visibleTokens} argmaxHeads={visibleHeads} highlightMode={highlightMode} />
         ) : (
           <FileDropZone onLoad={handleLoad} onLoadSample={() => handleLoad(defaultData)} />
         )}
