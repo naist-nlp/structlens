@@ -30,6 +30,7 @@ function App() {
   const [showUpload, setShowUpload] = useState(false);
   const [copied, setCopied] = useState(false);
   const [highlightMode, setHighlightMode] = useState<'children' | 'parents'>('children');
+  const helpDialog = useRef<HTMLDialogElement>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleLoad = useCallback((d: StructLensData) => {
@@ -74,6 +75,9 @@ function App() {
         </div>
         {data && !showUpload && (
           <div className="app-controls">
+            <button className="load-btn" aria-haspopup="dialog" onClick={() => helpDialog.current?.showModal()}>
+              How to use
+            </button>
             <button className="load-btn" onClick={() => setShowUpload(true)}>
               Upload File
             </button>
@@ -106,6 +110,13 @@ function App() {
           </div>
         )}
       </div>
+      <dialog className="help-dialog" ref={helpDialog} aria-labelledby="help-title">
+        <h2 id="help-title">How to use StructLens</h2>
+        <p><strong>Hover over a dot or token label</strong> to highlight its connections. Use the Hover button to switch between its children and its parent.</p>
+        <p><strong>Double-click to pin</strong> the highlight while you move the pointer. Double-click the same node to release it, or another node to move the pin.</p>
+        <p>Step through layers to see how the connections change. Drag the graph to pan and scroll to zoom.</p>
+        <form method="dialog"><button className="load-btn">Close</button></form>
+      </dialog>
       <div className="app-main">
         {data && !showUpload ? (
           <TreeView key={`${tokenStart}-${tokenEnd}`} tokens={visibleTokens} argmaxHeads={visibleHeads} highlightMode={highlightMode} />
